@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Emigrant Croatia Desk (MVP)
 
-## Getting Started
+Личный кабинет для цифровых кочевников в Хорватии.
 
-First, run the development server:
+## Стек
+
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+- Supabase Auth + PostgreSQL (RLS)
+- Brevo — email при смене статуса дела
+
+## Быстрый старт
+
+1. Установите зависимости:
+
+```bash
+npm install
+```
+
+2. Создайте файл `.env.local` на основе `.env.example`. Для облачного Supabase укажите **Project URL** вида `https://<ref>.supabase.co`, не `http://127.0.0.1:54321`.
+
+3. Примените **все** SQL-миграции из `supabase/migrations/` в Supabase SQL Editor **по порядку имени файла**:
+
+- `20260508160000_init_profiles.sql`
+- `20260508164500_create_cases.sql`
+- `20260509120000_fix_profiles_rls_recursion.sql`
+- `20260509140000_add_curator_comment_for_client.sql`
+- `20260509160000_admin_shared_client_access.sql`
+- `20260509180000_cases_status_reached_at.sql`
+- `20260519120000_client_cases_public_view.sql`
+
+4. Запустите проект:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Страницы
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| URL | Назначение |
+|-----|------------|
+| `/auth` | Единая страница входа (клиент и админ) |
+| `/dashboard` | Кабинет клиента |
+| `/admin` | Главная админки |
+| `/admin/clients` | Список клиентов |
+| `/admin/clients/new` | Создание клиента |
+| `/admin/clients/[id]` | Карточка клиента |
+| `/admin/admins` | Список администраторов |
+| `/admin/admins/[id]` | Карточка админа, сброс пароля |
+| `/admin/create-admin` | Новый администратор |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Регистрации по ссылке нет: учётки создаёт администратор, пользователю отправляют `/auth`, email и пароль.
 
-## Learn More
+## Роли и доступ
 
-To learn more about Next.js, take a look at the following resources:
+- Роли: `admin`, `client`
+- Маршруты защищены `middleware.ts` (в проде **не** включайте `SKIP_AUTH_MIDDLEWARE`)
+- Клиент читает дело через view `cases_client_public` (без `internal_comment`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Первый администратор
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Создайте пользователя в Supabase Auth (Dashboard → Authentication → Users).
+2. В `profiles` должна появиться строка (триггер).
+3. SQL:
 
-## Deploy on Vercel
+```sql
+update public.profiles
+set role = 'admin'
+where email = 'admin@example.com';
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Либо создайте админа через `/admin/create-admin`, если уже есть один admin.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Продакшен
+
+- `NEXT_PUBLIC_SITE_URL` — боевой домен (для ссылок в письмах и при копировании доступа)
+- `BREVO_*` — уведомления при смене статуса
+- В Supabase: **отключить** публичную регистрацию (sign-up)
+- **Не задавать** `SKIP_AUTH_MIDDLEWARE` на хостинге
+
+## Структура
+
+- `app/` — страницы и server actions
+- `components/` — UI и формы
+- `lib/` — auth, Supabase, email, статусы дела
+- `supabase/migrations/` — схема БД и RLS
