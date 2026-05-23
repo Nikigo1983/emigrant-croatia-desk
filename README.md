@@ -72,12 +72,25 @@ where email = 'admin@example.com';
 
 Либо создайте админа через `/admin/create-admin`, если уже есть один admin.
 
-## Продакшен
+## Продакшен (Vercel)
 
-- `NEXT_PUBLIC_SITE_URL` — боевой домен (для ссылок в письмах и при копировании доступа)
-- `BREVO_*` — уведомления при смене статуса
-- В Supabase: **отключить** публичную регистрацию (sign-up)
-- **Не задавать** `SKIP_AUTH_MIDDLEWARE` на хостинге
+В **Project → Settings → Environment Variables** добавьте:
+
+| Переменная | Обязательно |
+|------------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | да |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | да |
+| `SUPABASE_SERVICE_ROLE_KEY` | да |
+| `NEXT_PUBLIC_SITE_URL` | да (`https://ваш-домен.vercel.app`) |
+| `BREVO_API_KEY` | для писем |
+| `BREVO_SENDER_EMAIL` | для писем |
+| `BREVO_SENDER_NAME` | для писем |
+
+**Не добавляйте** на Vercel: `SKIP_AUTH_MIDDLEWARE`, `NODE_TLS_REJECT_UNAUTHORIZED`, `BREVO_SKIP_TLS_VERIFY`.
+
+После изменения переменных сделайте **Redeploy**.
+
+В Supabase: **отключить** публичную регистрацию (sign-up).
 
 ## Структура
 

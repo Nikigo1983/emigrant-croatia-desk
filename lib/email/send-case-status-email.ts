@@ -21,16 +21,19 @@ export async function sendCaseStatusEmail({
   oldStatus,
   newStatus,
 }: SendCaseStatusEmailParams) {
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
-  const senderName = process.env.BREVO_SENDER_NAME ?? "Emigrant Croatia Desk";
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  const senderEmail = process.env.BREVO_SENDER_EMAIL?.trim();
+  const senderName =
+    process.env.BREVO_SENDER_NAME?.trim() || "Emigrant Croatia Desk";
 
   if (!apiKey) {
     return;
   }
 
   if (!senderEmail) {
-    throw new Error("BREVO_SENDER_EMAIL is not configured");
+    throw new Error(
+      "Не задан BREVO_SENDER_EMAIL на сервере (Vercel → Environment Variables).",
+    );
   }
 
   const greetingNameRaw = clientName?.trim() || "клиент";

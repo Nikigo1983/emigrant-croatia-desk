@@ -46,7 +46,7 @@ export function UpdateClientIdentityForm(props: Props) {
             role="status"
             aria-live="polite"
           >
-            Сохранено.
+            Сохранено (данные клиента).
           </div>
         ) : null}
 

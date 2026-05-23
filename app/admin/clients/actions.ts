@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { normalizeCaseStatus, isKnownCaseStatus } from "@/lib/constants/case-status-legacy";
 import { CASE_STATUSES } from "@/lib/constants/case-statuses";
 import { STATUS_SUBMISSION_DETAILS } from "@/lib/constants/case-status-utils";
 import { generateTempPassword } from "@/lib/auth/generate-temp-password";
@@ -136,7 +137,10 @@ export async function updateClientCaseAction(
 ) {
   await requireAdmin();
 
-  const currentStatus = String(formData.get("current_status") ?? "").trim();
+  const currentStatusRaw = String(formData.get("current_status") ?? "").trim();
+  const currentStatus = isKnownCaseStatus(currentStatusRaw)
+    ? currentStatusRaw
+    : normalizeCaseStatus(currentStatusRaw);
   const submissionDate = String(formData.get("submission_date") ?? "").trim() || null;
   const submissionCity = String(formData.get("submission_city") ?? "").trim() || null;
   const caseNumber = String(formData.get("case_number") ?? "").trim() || null;
@@ -174,7 +178,12 @@ export async function updateClientCaseAction(
   }
 
   const previousStatus = existingCase?.current_status ?? null;
-  const isStatusChanged = previousStatus !== currentStatus;
+  const previousStatusNormalized = previousStatus
+    ? normalizeCaseStatus(previousStatus)
+    : null;
+  const isStatusChanged =
+    previousStatusNormalized !== currentStatus &&
+    previousStatus !== currentStatus;
   const filingActive = currentStatus === STATUS_SUBMISSION_DETAILS;
 
   const updatePayload: Record<string, unknown> = {
@@ -209,25 +218,31 @@ export async function updateClientCaseAction(
   }
 
   const clientEmail = profile?.email?.trim();
-  const hasBrevoKey = Boolean(process.env.BREVO_API_KEY?.trim());
+  const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+  const brevoSenderEmail = process.env.BREVO_SENDER_EMAIL?.trim();
   let emailWarning: string | undefined;
 
-  if (isStatusChanged && clientEmail && hasBrevoKey) {
-    const clientName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
+  if (isStatusChanged && clientEmail) {
+    if (!brevoApiKey) {
+      emailWarning =
+        "Статус сохранён. Письмо не отправлено: на сервере не задан BREVO_API_KEY (проверьте Vercel → Environment Variables и Redeploy).";
+    } else if (!brevoSenderEmail) {
+      emailWarning =
+        "Статус сохранён. Письмо не отправлено: не задан BREVO_SENDER_EMAIL (добавьте в Vercel из .env.local и сделайте Redeploy).";
+    } else {
+      const clientName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
 
-    try {
-      await sendCaseStatusEmail({
-        to: clientEmail,
-        clientName: clientName || undefined,
-        oldStatus: previousStatus ?? undefined,
-        newStatus: currentStatus,
-      });
-    } catch (error) {
-      emailWarning = `Статус сохранён, но письмо клиенту не отправлено: ${formatBrevoRequestError(error)}`;
+      try {
+        await sendCaseStatusEmail({
+          to: clientEmail,
+          clientName: clientName || undefined,
+          oldStatus: previousStatus ?? undefined,
+          newStatus: currentStatus,
+        });
+      } catch (error) {
+        emailWarning = `Статус сохранён, но письмо клиенту не отправлено: ${formatBrevoRequestError(error)}`;
+      }
     }
-  } else if (isStatusChanged && clientEmail && !hasBrevoKey) {
-    emailWarning =
-      "Статус сохранён. Письмо не отправлено: не задан BREVO_API_KEY на сервере.";
   }
 
   revalidatePath("/admin/clients");

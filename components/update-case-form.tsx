@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { updateClientCaseAction } from "@/app/admin/clients/actions";
+import { getLegacyStatusLabel, normalizeCaseStatus } from "@/lib/constants/case-status-legacy";
 import { CASE_STATUSES } from "@/lib/constants/case-statuses";
 import { showsSubmissionDetails } from "@/lib/constants/case-status-utils";
 import { Button } from "@/components/ui/button";
@@ -27,8 +28,9 @@ export function UpdateCaseForm(props: Props) {
     [props.clientId],
   );
   const [state, formAction, isPending] = useActionState(action, initialState);
-  const [statusValue, setStatusValue] = useState(
-    props.currentStatus ?? CASE_STATUSES[0],
+  const legacyStatusLabel = getLegacyStatusLabel(props.currentStatus);
+  const [statusValue, setStatusValue] = useState(() =>
+    normalizeCaseStatus(props.currentStatus),
   );
   const showFilingFields = showsSubmissionDetails(statusValue);
   const showSaved = Boolean(state.success) && !isPending;
@@ -59,7 +61,7 @@ export function UpdateCaseForm(props: Props) {
           role="status"
           aria-live="polite"
         >
-          Сохранено.
+          Сохранено (статус дела).
         </div>
       ) : null}
 
@@ -67,12 +69,18 @@ export function UpdateCaseForm(props: Props) {
         <label htmlFor="current_status" className="text-sm font-medium">
           Текущий статус
         </label>
+        {legacyStatusLabel ? (
+          <p className="text-xs text-amber-800">
+            В базе записан устаревший статус «{legacyStatusLabel}» — в списке отображается как «
+            {normalizeCaseStatus(legacyStatusLabel)}». После сохранения будет обновлён.
+          </p>
+        ) : null}
         <Select
           id="current_status"
           name="current_status"
           required
           value={statusValue}
-          onChange={(event) => setStatusValue(event.target.value)}
+          onChange={(event) => setStatusValue(normalizeCaseStatus(event.target.value))}
         >
           {CASE_STATUSES.map((status) => (
             <option key={status} value={status}>
