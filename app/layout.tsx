@@ -8,7 +8,11 @@ import {
   PWA_SHORT_NAME,
   PWA_THEME_COLOR,
 } from "@/lib/pwa/constants";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
+
+const siteUrl = getSiteUrl();
+const siteDescription = "Личный кабинет для цифровых кочевников в Хорватии";
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -24,10 +28,33 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Emigrant Croatia Desk",
-  description: "Личный кабинет для цифровых кочевников в Хорватии",
+  description: siteDescription,
   applicationName: PWA_SHORT_NAME,
   manifest: PWA_MANIFEST_PATH,
+  openGraph: {
+    type: "website",
+    locale: "ru_RU",
+    url: siteUrl,
+    siteName: "Emigrant Croatia Desk",
+    title: "Emigrant Croatia Desk",
+    description: siteDescription,
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Emigrant — личный кабинет",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Emigrant Croatia Desk",
+    description: siteDescription,
+    images: ["/og-image.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -35,6 +62,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -64,6 +92,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content={PWA_SHORT_NAME} />
         <meta name="background-color" content={PWA_BACKGROUND_COLOR} />
+        <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <PwaAppleSplashLinks />
       </head>
