@@ -16,6 +16,13 @@ const appDir = path.join(root, "public");
 const appMetaDir = path.join(root, "app");
 
 const BACKGROUND = "#F8FAFC";
+
+/** Широкий логотип: ограничиваем размер, чтобы не обрезало на Android/iOS. */
+const ICON_SAFE = {
+  any: { maxWidthRatio: 0.6, maxHeightRatio: 0.32 },
+  maskable: { maxWidthRatio: 0.5, maxHeightRatio: 0.26 },
+};
+
 async function ensureDir(dir) {
   await mkdir(dir, { recursive: true });
 }
@@ -29,11 +36,27 @@ async function fileExists(filePath) {
   }
 }
 
-async function createIcon(size, outPath) {
-  const padding = Math.round(size * 0.14);
-  const inner = size - padding * 2;
+async function getLogoAspectRatio() {
+  const meta = await sharp(logoPath).metadata();
+  return (meta.width || 1) / (meta.height || 1);
+}
+
+async function createAppIcon(size, outPath, variant = "any") {
+  const safe = ICON_SAFE[variant];
+  const aspect = await getLogoAspectRatio();
+
+  let logoWidth = Math.round(size * safe.maxWidthRatio);
+  let logoHeight = Math.round(logoWidth / aspect);
+  if (logoHeight > Math.round(size * safe.maxHeightRatio)) {
+    logoHeight = Math.round(size * safe.maxHeightRatio);
+    logoWidth = Math.round(logoHeight * aspect);
+  }
+
   const logo = await sharp(logoPath)
-    .resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(logoWidth, logoHeight, {
+      fit: "inside",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer();
 
@@ -102,19 +125,21 @@ async function main() {
   await ensureDir(splashDir);
   await ensureDir(appMetaDir);
 
-  await createIcon(192, path.join(iconsDir, "icon-192.png"));
-  await createIcon(512, path.join(iconsDir, "icon-512.png"));
-  await createIcon(32, path.join(appDir, "favicon-32.png"));
-  await createIcon(192, path.join(appMetaDir, "icon.png"));
-  await createIcon(180, path.join(appMetaDir, "apple-icon.png"));
+  await createAppIcon(192, path.join(iconsDir, "icon-192.png"), "any");
+  await createAppIcon(512, path.join(iconsDir, "icon-512.png"), "any");
+  await createAppIcon(192, path.join(iconsDir, "icon-192-maskable.png"), "maskable");
+  await createAppIcon(512, path.join(iconsDir, "icon-512-maskable.png"), "maskable");
+
+  await createAppIcon(32, path.join(appDir, "favicon-32.png"), "any");
+  await createAppIcon(192, path.join(appMetaDir, "icon.png"), "any");
+  await createAppIcon(180, path.join(appMetaDir, "apple-icon.png"), "maskable");
+
   await createOgImage(path.join(appDir, "og-image.png"));
   await createOgImage(path.join(appMetaDir, "opengraph-image.png"));
   await createSplash(1170, 2532, path.join(splashDir, "apple-splash-1170x2532.png"));
   await createSplash(1284, 2778, path.join(splashDir, "apple-splash-1284x2778.png"));
 
-  console.log(
-    "PWA + OG assets: public/icons, public/og-image.png, app/icon.png, app/opengraph-image.png",
-  );
+  console.log("PWA icons regenerated with safe padding for wide logo");
 }
 
 main().catch((error) => {
