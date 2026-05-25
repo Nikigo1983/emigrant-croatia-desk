@@ -40,7 +40,7 @@ export default async function AdminDetailsPage({ params }: Params) {
     <main className="mx-auto flex w-full max-w-6xl flex-1 px-4 py-6 sm:py-10">
       <Card className="space-y-6">
         <div className="space-y-4">
-          <Logo />
+          <Logo href="/admin" />
           <AdminNav />
         </div>
 

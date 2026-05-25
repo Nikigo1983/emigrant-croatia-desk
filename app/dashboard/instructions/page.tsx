@@ -33,7 +33,7 @@ export default async function DashboardInstructionsPage() {
     <main className="mx-auto flex w-full max-w-6xl flex-1 px-4 py-10">
       <Card className="space-y-6">
         <div className="space-y-4">
-          <Logo />
+          <Logo href="/dashboard" />
           <DashboardNav />
         </div>
 
@@ -52,7 +52,7 @@ export default async function DashboardInstructionsPage() {
           ))}
         </div>
 
-        <DashboardFooter />
+        <DashboardFooter variant="back" />
       </Card>
     </main>
   );

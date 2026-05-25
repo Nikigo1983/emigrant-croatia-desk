@@ -33,7 +33,7 @@ export default async function AdminPage() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 py-12">
       <Card className="max-w-2xl space-y-6">
-        <Logo />
+        <Logo href="/admin" />
         <AdminNav />
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold">{greeting}</h1>

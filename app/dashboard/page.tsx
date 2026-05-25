@@ -46,7 +46,7 @@ export default async function DashboardPage() {
       <main className="mx-auto flex w-full max-w-6xl flex-1 px-4 py-10">
         <Card className="space-y-6">
           <div className="space-y-4">
-            <Logo />
+            <Logo href="/dashboard" />
             <DashboardNav />
           </div>
           <div className="space-y-2">
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
     <main className="mx-auto flex w-full max-w-6xl flex-1 px-4 py-10">
       <Card className="space-y-6">
         <div className="space-y-4">
-          <Logo />
+          <Logo href="/dashboard" />
           <DashboardNav />
         </div>
         <div className="space-y-2">
