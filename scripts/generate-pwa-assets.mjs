@@ -41,7 +41,15 @@ async function getLogoAspectRatio() {
   return (meta.width || 1) / (meta.height || 1);
 }
 
-async function createAppIcon(size, outPath, variant = "any") {
+function roundedRectSvg(size, radius, fill) {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="${fill}"/>
+    </svg>`,
+  );
+}
+
+async function resizeLogoForIcon(size, variant) {
   const safe = ICON_SAFE[variant];
   const aspect = await getLogoAspectRatio();
 
@@ -52,11 +60,36 @@ async function createAppIcon(size, outPath, variant = "any") {
     logoWidth = Math.round(logoHeight * aspect);
   }
 
-  const logo = await sharp(logoPath)
+  return sharp(logoPath)
     .resize(logoWidth, logoHeight, {
       fit: "inside",
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
+    .png()
+    .toBuffer();
+}
+
+/** maskable — квадрат с полями (Android). any — скруглённые углы (ПК, iOS, manifest any). */
+async function createAppIcon(size, outPath, variant = "any") {
+  const logo = await resizeLogoForIcon(size, variant);
+
+  if (variant === "maskable") {
+    await sharp({
+      create: {
+        width: size,
+        height: size,
+        channels: 4,
+        background: BACKGROUND,
+      },
+    })
+      .composite([{ input: logo, gravity: "centre" }])
+      .png()
+      .toFile(outPath);
+    return;
+  }
+
+  const radius = Math.round(size * 0.22);
+  const roundedBackground = await sharp(roundedRectSvg(size, radius, BACKGROUND))
     .png()
     .toBuffer();
 
@@ -65,10 +98,13 @@ async function createAppIcon(size, outPath, variant = "any") {
       width: size,
       height: size,
       channels: 4,
-      background: BACKGROUND,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   })
-    .composite([{ input: logo, gravity: "centre" }])
+    .composite([
+      { input: roundedBackground, gravity: "centre" },
+      { input: logo, gravity: "centre" },
+    ])
     .png()
     .toFile(outPath);
 }
@@ -132,7 +168,7 @@ async function main() {
 
   await createAppIcon(32, path.join(appDir, "favicon-32.png"), "any");
   await createAppIcon(192, path.join(appMetaDir, "icon.png"), "any");
-  await createAppIcon(180, path.join(appMetaDir, "apple-icon.png"), "maskable");
+  await createAppIcon(180, path.join(appMetaDir, "apple-icon.png"), "any");
 
   await createOgImage(path.join(appDir, "og-image.png"));
   await createOgImage(path.join(appMetaDir, "opengraph-image.png"));
