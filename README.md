@@ -92,6 +92,52 @@ where email = 'admin@example.com';
 
 В Supabase: **отключить** публичную регистрацию (sign-up).
 
+## PWA (установка на телефон)
+
+Приложение — Progressive Web App: иконка на главном экране, полноэкранный режим, минимальный offline shell.
+
+### Файлы
+
+| Файл | Назначение |
+|------|------------|
+| `public/manifest.json` | Манифест (имя, цвета, `standalone`, иконки) |
+| `public/sw.js` | Service Worker: кэш стилей/иконок, без Supabase/auth |
+| `public/offline.html` | Страница «нет сети» |
+| `public/icons/icon-192.png`, `icon-512.png` | Иконки (из `logo.png`) |
+| `public/splash/apple-splash-*.png` | Splash для iOS |
+| `components/pwa/*` | Регистрация SW, Android install, подсказка iOS |
+| `lib/pwa/*` | Константы и определение standalone / iOS |
+
+Пересоздать иконки и splash:
+
+```bash
+npm run generate:pwa
+```
+
+Service Worker регистрируется **только в production** (`npm run build` + deploy).
+
+### Проверка installability (Chrome)
+
+1. Откройте production URL (HTTPS обязателен).
+2. DevTools → **Application** → **Manifest** — без ошибок, иконки 192/512.
+3. **Lighthouse** → категория **PWA** (или «Installable»).
+4. Android Chrome: меню или баннер «Установить»; в приложении — кнопка **«Установить приложение»** (не агрессивный popup).
+
+### iPhone (Safari)
+
+1. Откройте сайт в **Safari** (не встроенный браузер Telegram).
+2. **Поделиться** → **На экран «Домой»**.
+3. На не установленном PWA внизу показывается подсказка с тем же текстом.
+
+### Offline
+
+- Кэшируются: `/_next/static`, иконки, `manifest`, `logo`, `offline.html`.
+- **Не кэшируются:** Supabase, auth, HTML страниц при успешной загрузке (только fallback offline при обрыве сети).
+
+### После деплоя
+
+PWA работает на домене Vercel и на custom domain (тот же `manifest` + HTTPS).
+
 ## Структура
 
 - `app/` — страницы и server actions

@@ -20,3 +20,30 @@ body {
   color: var(--foreground);
   font-family: var(--font-montserrat), Arial, sans-serif;
 }
+
+.app-shell {
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+/* Room for PWA install / iOS hints at the bottom */
+body:has(.pwa-install-bar) .app-shell,
+body:has(.pwa-ios-hint) .app-shell {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 4.5rem);
+}
+
+.pwa-install-bar,
+.pwa-ios-hint {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+@media (display-mode: standalone) {
+  .app-shell {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
