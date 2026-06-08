@@ -14,12 +14,12 @@ export function Logo({ className = "", href }: LogoProps) {
       alt="Emigrant"
       fill
       className="object-contain object-left"
-      sizes="176px"
+        sizes="48px"
       priority
     />
   );
 
-  const boxClass = `relative block h-12 w-44 ${className}`;
+  const boxClass = `relative block h-12 w-12 ${className}`;
 
   if (href) {
     return (
