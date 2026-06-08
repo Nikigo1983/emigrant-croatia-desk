@@ -1,5 +1,6 @@
 /**
- * Generates PWA icons, site logo and OG images from public/main_logo.jpg.
+ * Иконки PWA / favicon — из public/main_logo.jpg (ярлык на экране, вкладка).
+ * Превью ссылок и splash — из public/logo.png (логотип внутри приложения).
  * Run: npm run generate:pwa
  */
 import { mkdir, access } from "node:fs/promises";
@@ -9,8 +10,8 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const logoSourcePath = path.join(root, "public", "main_logo.jpg");
-const logoFallbackPath = path.join(root, "public", "logo.png");
+const iconSourcePath = path.join(root, "public", "main_logo.jpg");
+const siteLogoPath = path.join(root, "public", "logo.png");
 const iconsDir = path.join(root, "public", "icons");
 const splashDir = path.join(root, "public", "splash");
 const appDir = path.join(root, "public");
@@ -18,20 +19,15 @@ const appMetaDir = path.join(root, "app");
 
 const BACKGROUND = "#F8FAFC";
 
-/** Квадратный логотип (main_logo): небольшие поля под маску ОС. */
 const SQUARE_ICON_INSET = {
   any: 0.06,
   maskable: 0.14,
 };
 
-/** Горизонтальный логотип (legacy logo.png). */
 const WIDE_ICON_SAFE = {
   any: { maxWidthRatio: 0.6, maxHeightRatio: 0.32 },
   maskable: { maxWidthRatio: 0.5, maxHeightRatio: 0.26 },
 };
-
-let resolvedLogoPath = logoSourcePath;
-let logoIsSquare = true;
 
 async function ensureDir(dir) {
   await mkdir(dir, { recursive: true });
@@ -46,23 +42,14 @@ async function fileExists(filePath) {
   }
 }
 
-async function resolveLogoSource() {
-  if (await fileExists(logoSourcePath)) {
-    resolvedLogoPath = logoSourcePath;
-  } else if (await fileExists(logoFallbackPath)) {
-    resolvedLogoPath = logoFallbackPath;
-  } else {
-    console.error("Missing public/main_logo.jpg (or fallback public/logo.png)");
-    process.exit(1);
-  }
-
-  const meta = await sharp(resolvedLogoPath).metadata();
+async function isSquareImage(filePath) {
+  const meta = await sharp(filePath).metadata();
   const aspect = (meta.width || 1) / (meta.height || 1);
-  logoIsSquare = aspect >= 0.85 && aspect <= 1.15;
+  return aspect >= 0.85 && aspect <= 1.15;
 }
 
-async function getLogoAspectRatio() {
-  const meta = await sharp(resolvedLogoPath).metadata();
+async function getAspectRatio(filePath) {
+  const meta = await sharp(filePath).metadata();
   return (meta.width || 1) / (meta.height || 1);
 }
 
@@ -74,18 +61,18 @@ function roundedRectSvg(size, radius, fill) {
   );
 }
 
-async function resizeLogoForIcon(size, variant) {
-  if (logoIsSquare) {
+async function resizeForAppIcon(sourcePath, size, variant, square) {
+  if (square) {
     const inset = Math.round(size * SQUARE_ICON_INSET[variant]);
     const inner = size - inset * 2;
-    return sharp(resolvedLogoPath)
+    return sharp(sourcePath)
       .resize(inner, inner, { fit: "cover" })
       .png()
       .toBuffer();
   }
 
   const safe = WIDE_ICON_SAFE[variant];
-  const aspect = await getLogoAspectRatio();
+  const aspect = await getAspectRatio(sourcePath);
 
   let logoWidth = Math.round(size * safe.maxWidthRatio);
   let logoHeight = Math.round(logoWidth / aspect);
@@ -94,7 +81,7 @@ async function resizeLogoForIcon(size, variant) {
     logoWidth = Math.round(logoHeight * aspect);
   }
 
-  return sharp(resolvedLogoPath)
+  return sharp(sourcePath)
     .resize(logoWidth, logoHeight, {
       fit: "inside",
       background: { r: 0, g: 0, b: 0, alpha: 0 },
@@ -103,16 +90,16 @@ async function resizeLogoForIcon(size, variant) {
     .toBuffer();
 }
 
-async function createAppIcon(size, outPath, variant = "any") {
-  const logo = await resizeLogoForIcon(size, variant);
+async function createAppIcon(sourcePath, square, size, outPath, variant = "any") {
+  const logo = await resizeForAppIcon(sourcePath, size, variant, square);
 
-  if (logoIsSquare && variant === "any") {
+  if (square && variant === "any") {
     const radius = Math.round(size * 0.22);
     const roundedMask = await sharp(roundedRectSvg(size, radius, "#ffffff"))
       .png()
       .toBuffer();
 
-    const square = await sharp({
+    const squareImage = await sharp({
       create: {
         width: size,
         height: size,
@@ -124,7 +111,7 @@ async function createAppIcon(size, outPath, variant = "any") {
       .png()
       .toBuffer();
 
-    await sharp(square)
+    await sharp(squareImage)
       .composite([{ input: roundedMask, blend: "dest-in" }])
       .png()
       .toFile(outPath);
@@ -167,24 +154,17 @@ async function createAppIcon(size, outPath, variant = "any") {
     .toFile(outPath);
 }
 
-async function exportSiteLogo() {
-  await sharp(resolvedLogoPath)
-    .resize(192, 192, { fit: "inside", background: BACKGROUND })
-    .png()
-    .toFile(path.join(appDir, "logo.png"));
-}
-
-async function createOgImage(outPath) {
+async function createOgImage(sourcePath, square, outPath) {
   const width = 1200;
   const height = 630;
-  const logoSize = logoIsSquare ? 280 : 520;
+  const logoSize = square ? 280 : 520;
 
-  const logo = logoIsSquare
-    ? await sharp(resolvedLogoPath)
+  const logo = square
+    ? await sharp(sourcePath)
         .resize(logoSize, logoSize, { fit: "inside", background: BACKGROUND })
         .png()
         .toBuffer()
-    : await sharp(resolvedLogoPath)
+    : await sharp(sourcePath)
         .resize(logoSize, null, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
@@ -202,14 +182,14 @@ async function createOgImage(outPath) {
     .toFile(outPath);
 }
 
-async function createSplash(width, height, outPath) {
-  const logoSize = logoIsSquare ? Math.round(width * 0.34) : Math.round(width * 0.42);
-  const logo = logoIsSquare
-    ? await sharp(resolvedLogoPath)
+async function createSplash(sourcePath, square, width, height, outPath) {
+  const logoSize = square ? Math.round(width * 0.34) : Math.round(width * 0.42);
+  const logo = square
+    ? await sharp(sourcePath)
         .resize(logoSize, logoSize, { fit: "inside", background: BACKGROUND })
         .png()
         .toBuffer()
-    : await sharp(resolvedLogoPath)
+    : await sharp(sourcePath)
         .resize(logoSize, null, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
@@ -228,29 +208,42 @@ async function createSplash(width, height, outPath) {
 }
 
 async function main() {
-  await resolveLogoSource();
+  if (!(await fileExists(iconSourcePath))) {
+    console.error("Missing public/main_logo.jpg (иконка PWA / favicon)");
+    process.exit(1);
+  }
+  if (!(await fileExists(siteLogoPath))) {
+    console.error("Missing public/logo.png (логотип внутри приложения)");
+    process.exit(1);
+  }
+
+  const iconSquare = await isSquareImage(iconSourcePath);
+  const siteSquare = await isSquareImage(siteLogoPath);
 
   await ensureDir(iconsDir);
   await ensureDir(splashDir);
   await ensureDir(appMetaDir);
 
-  await exportSiteLogo();
+  const iconJobs = [
+    [192, path.join(iconsDir, "icon-192.png"), "any"],
+    [512, path.join(iconsDir, "icon-512.png"), "any"],
+    [192, path.join(iconsDir, "icon-192-maskable.png"), "maskable"],
+    [512, path.join(iconsDir, "icon-512-maskable.png"), "maskable"],
+    [32, path.join(appDir, "favicon-32.png"), "any"],
+    [192, path.join(appMetaDir, "icon.png"), "any"],
+    [180, path.join(appMetaDir, "apple-icon.png"), "any"],
+  ];
 
-  await createAppIcon(192, path.join(iconsDir, "icon-192.png"), "any");
-  await createAppIcon(512, path.join(iconsDir, "icon-512.png"), "any");
-  await createAppIcon(192, path.join(iconsDir, "icon-192-maskable.png"), "maskable");
-  await createAppIcon(512, path.join(iconsDir, "icon-512-maskable.png"), "maskable");
+  for (const [size, outPath, variant] of iconJobs) {
+    await createAppIcon(iconSourcePath, iconSquare, size, outPath, variant);
+  }
 
-  await createAppIcon(32, path.join(appDir, "favicon-32.png"), "any");
-  await createAppIcon(192, path.join(appMetaDir, "icon.png"), "any");
-  await createAppIcon(180, path.join(appMetaDir, "apple-icon.png"), "any");
+  await createOgImage(siteLogoPath, siteSquare, path.join(appDir, "og-image.png"));
+  await createOgImage(siteLogoPath, siteSquare, path.join(appMetaDir, "opengraph-image.png"));
+  await createSplash(siteLogoPath, siteSquare, 1170, 2532, path.join(splashDir, "apple-splash-1170x2532.png"));
+  await createSplash(siteLogoPath, siteSquare, 1284, 2778, path.join(splashDir, "apple-splash-1284x2778.png"));
 
-  await createOgImage(path.join(appDir, "og-image.png"));
-  await createOgImage(path.join(appMetaDir, "opengraph-image.png"));
-  await createSplash(1170, 2532, path.join(splashDir, "apple-splash-1170x2532.png"));
-  await createSplash(1284, 2778, path.join(splashDir, "apple-splash-1284x2778.png"));
-
-  console.log(`Assets generated from ${path.basename(resolvedLogoPath)}`);
+  console.log("PWA icons from main_logo.jpg; OG/splash from logo.png (сайт без изменений)");
 }
 
 main().catch((error) => {
