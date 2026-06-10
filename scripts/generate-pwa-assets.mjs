@@ -1,5 +1,5 @@
 /**
- * Иконки PWA / favicon — из public/new_logo1.png (вкладка, панель задач, ярлык).
+ * Иконки PWA / favicon — из public/new_logo3.png (вкладка, панель задач, ярлык).
  * Превью ссылок и splash — из public/logo.png (логотип внутри приложения).
  * Run: npm run generate:pwa
  */
@@ -10,7 +10,8 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const designedIconPath = path.join(root, "public", "new_logo1.png");
+const designedIconPath = path.join(root, "public", "new_logo3.png");
+const designedIconFallbackPath = path.join(root, "public", "new_logo1.png");
 const legacyIconPath = path.join(root, "public", "main_logo.jpg");
 const siteLogoPath = path.join(root, "public", "logo.png");
 const iconsDir = path.join(root, "public", "icons");
@@ -67,6 +68,9 @@ function roundedRectSvg(size, radius, fill) {
 async function resolveIconSource() {
   if (await fileExists(designedIconPath)) {
     return { path: designedIconPath, mode: "designed" };
+  }
+  if (await fileExists(designedIconFallbackPath)) {
+    return { path: designedIconFallbackPath, mode: "designed" };
   }
   if (await fileExists(legacyIconPath)) {
     return { path: legacyIconPath, mode: "legacy" };
@@ -188,11 +192,37 @@ async function flattenDesignedIcon(sourcePath, size, blue) {
   return sharp(output, { raw: { width: size, height: size, channels: 4 } }).png().toBuffer();
 }
 
-/** Готовая иконка new_logo1.png — синий #2100FF до краёв (maskable = тот же файл). */
+/** Готовая иконка (new_logo3): синий #2100FF до краёв, прозрачность → синий. */
 async function createDesignedAppIcon(sourcePath, size, outPath) {
   const blue = brandBlue();
-  const flattened = await flattenDesignedIcon(sourcePath, size, blue);
-  await sharp(flattened).png().toFile(outPath);
+  const radius = Math.round(size * ICON_CORNER_RADIUS);
+
+  const flattened = await sharp(sourcePath)
+    .resize(size, size, { fit: "cover", position: "centre" })
+    .flatten({ background: blue })
+    .png()
+    .toBuffer();
+
+  const roundedMask = await sharp(roundedRectSvg(size, radius, "#ffffff"))
+    .png()
+    .toBuffer();
+
+  const masked = await sharp(flattened)
+    .composite([{ input: roundedMask, blend: "dest-in" }])
+    .png()
+    .toBuffer();
+
+  await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 3,
+      background: blue,
+    },
+  })
+    .composite([{ input: masked, gravity: "centre" }])
+    .png()
+    .toFile(outPath);
 }
 
 async function resizeForAppIcon(sourcePath, size, variant, square) {
@@ -344,7 +374,7 @@ async function createSplash(sourcePath, square, width, height, outPath) {
 async function main() {
   const iconSource = await resolveIconSource();
   if (!iconSource) {
-    console.error("Missing public/new_logo1.png (или fallback public/main_logo.jpg)");
+    console.error("Missing public/new_logo3.png (или fallback new_logo1 / main_logo)");
     process.exit(1);
   }
   if (!(await fileExists(siteLogoPath))) {
