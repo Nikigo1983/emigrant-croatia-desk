@@ -3,7 +3,7 @@
  * Превью ссылок и splash — из public/logo.png (логотип внутри приложения).
  * Run: npm run generate:pwa
  */
-import { mkdir, access } from "node:fs/promises";
+import { mkdir, access, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -197,7 +197,7 @@ async function flattenDesignedIcon(sourcePath, size, blue) {
 }
 
 /** Скруглённая синяя иконка: углы прозрачные (Windows/панель задач рисуют скругление). */
-async function createDesignedAppIcon(sourcePath, size, outPath) {
+async function createDesignedAppIconBuffer(sourcePath, size) {
   const blue = brandBlue();
   const radius = Math.round(size * ICON_CORNER_RADIUS);
 
@@ -211,10 +211,42 @@ async function createDesignedAppIcon(sourcePath, size, outPath) {
     .png()
     .toBuffer();
 
-  await sharp(flattened)
+  return sharp(flattened)
     .composite([{ input: roundedMask, blend: "dest-in" }])
     .png()
-    .toFile(outPath);
+    .toBuffer();
+}
+
+async function createDesignedAppIcon(sourcePath, size, outPath) {
+  const buffer = await createDesignedAppIconBuffer(sourcePath, size);
+  await writeFile(outPath, buffer);
+}
+
+/** ICO с PNG-кадрами — Windows лучше подхватывает для ярлыков на рабочем столе. */
+async function writeIco(filePath, frames) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(frames.length, 4);
+
+  let offset = 6 + frames.length * 16;
+  const entries = [];
+  const images = [];
+
+  for (const { size, buffer } of frames) {
+    const entry = Buffer.alloc(16);
+    entry[0] = size >= 256 ? 0 : size;
+    entry[1] = size >= 256 ? 0 : size;
+    entry.writeUInt16LE(1, 4);
+    entry.writeUInt16LE(32, 6);
+    entry.writeUInt32LE(buffer.length, 8);
+    entry.writeUInt32LE(offset, 12);
+    entries.push(entry);
+    images.push(buffer);
+    offset += buffer.length;
+  }
+
+  await writeFile(filePath, Buffer.concat([header, ...entries, ...images]));
 }
 
 async function resizeForAppIcon(sourcePath, size, variant, square) {
@@ -408,6 +440,15 @@ async function main() {
       512,
       path.join(iconsDir, "icon-512-maskable.png"),
     );
+
+    const icoSizes = [16, 32, 48, 256];
+    const icoFrames = await Promise.all(
+      icoSizes.map(async (size) => ({
+        size,
+        buffer: await createDesignedAppIconBuffer(iconSource.path, size),
+      })),
+    );
+    await writeIco(path.join(appDir, "favicon.ico"), icoFrames);
   }
 
   await createOgImage(siteLogoPath, siteSquare, path.join(appDir, "og-image.png"));

@@ -1,8 +1,9 @@
 /* Emigrant Croatia Desk — minimal offline shell (no auth/API cache). */
-const CACHE_VERSION = "emigrant-shell-v12";
+const CACHE_VERSION = "emigrant-shell-v13";
 const PRECACHE_URLS = [
   "/offline.html",
   "/manifest.json",
+  "/favicon.ico",
   "/logo.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
