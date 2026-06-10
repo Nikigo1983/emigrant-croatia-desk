@@ -1,5 +1,5 @@
 /**
- * Иконки PWA / favicon — из public/main_logo.jpg (ярлык на экране, вкладка).
+ * Иконки PWA / favicon — из public/new_logo1.png (вкладка, панель задач, ярлык).
  * Превью ссылок и splash — из public/logo.png (логотип внутри приложения).
  * Run: npm run generate:pwa
  */
@@ -10,7 +10,8 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const iconSourcePath = path.join(root, "public", "main_logo.jpg");
+const designedIconPath = path.join(root, "public", "new_logo1.png");
+const legacyIconPath = path.join(root, "public", "main_logo.jpg");
 const siteLogoPath = path.join(root, "public", "logo.png");
 const iconsDir = path.join(root, "public", "icons");
 const splashDir = path.join(root, "public", "splash");
@@ -18,6 +19,7 @@ const appDir = path.join(root, "public");
 const appMetaDir = path.join(root, "app");
 
 const BACKGROUND = "#F8FAFC";
+const ICON_CORNER_RADIUS = 0.22;
 
 const SQUARE_ICON_INSET = {
   any: 0.06,
@@ -61,6 +63,43 @@ function roundedRectSvg(size, radius, fill) {
   );
 }
 
+async function resolveIconSource() {
+  if (await fileExists(designedIconPath)) {
+    return { path: designedIconPath, mode: "designed" };
+  }
+  if (await fileExists(legacyIconPath)) {
+    return { path: legacyIconPath, mode: "legacy" };
+  }
+  return null;
+}
+
+/** Готовая иконка new_logo1.png — скругление уже в файле. */
+async function createDesignedAppIcon(sourcePath, size, outPath, variant = "any") {
+  const scale = variant === "maskable" ? 0.86 : 1;
+  const inner = Math.round(size * scale);
+  const logo = await sharp(sourcePath)
+    .resize(inner, inner, { fit: "cover" })
+    .png()
+    .toBuffer();
+
+  if (variant === "any" && scale === 1) {
+    await sharp(logo).png().toFile(outPath);
+    return;
+  }
+
+  await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([{ input: logo, gravity: "centre" }])
+    .png()
+    .toFile(outPath);
+}
+
 async function resizeForAppIcon(sourcePath, size, variant, square) {
   if (square) {
     const inset = Math.round(size * SQUARE_ICON_INSET[variant]);
@@ -90,11 +129,11 @@ async function resizeForAppIcon(sourcePath, size, variant, square) {
     .toBuffer();
 }
 
-async function createAppIcon(sourcePath, square, size, outPath, variant = "any") {
+async function createLegacyAppIcon(sourcePath, square, size, outPath, variant = "any") {
   const logo = await resizeForAppIcon(sourcePath, size, variant, square);
 
   if (square && variant === "any") {
-    const radius = Math.round(size * 0.22);
+    const radius = Math.round(size * ICON_CORNER_RADIUS);
     const roundedMask = await sharp(roundedRectSvg(size, radius, "#ffffff"))
       .png()
       .toBuffer();
@@ -133,7 +172,7 @@ async function createAppIcon(sourcePath, square, size, outPath, variant = "any")
     return;
   }
 
-  const radius = Math.round(size * 0.22);
+  const radius = Math.round(size * ICON_CORNER_RADIUS);
   const roundedBackground = await sharp(roundedRectSvg(size, radius, BACKGROUND))
     .png()
     .toBuffer();
@@ -208,8 +247,9 @@ async function createSplash(sourcePath, square, width, height, outPath) {
 }
 
 async function main() {
-  if (!(await fileExists(iconSourcePath))) {
-    console.error("Missing public/main_logo.jpg (иконка PWA / favicon)");
+  const iconSource = await resolveIconSource();
+  if (!iconSource) {
+    console.error("Missing public/new_logo1.png (или fallback public/main_logo.jpg)");
     process.exit(1);
   }
   if (!(await fileExists(siteLogoPath))) {
@@ -217,7 +257,7 @@ async function main() {
     process.exit(1);
   }
 
-  const iconSquare = await isSquareImage(iconSourcePath);
+  const iconSquare = await isSquareImage(iconSource.path);
   const siteSquare = await isSquareImage(siteLogoPath);
 
   await ensureDir(iconsDir);
@@ -235,7 +275,11 @@ async function main() {
   ];
 
   for (const [size, outPath, variant] of iconJobs) {
-    await createAppIcon(iconSourcePath, iconSquare, size, outPath, variant);
+    if (iconSource.mode === "designed") {
+      await createDesignedAppIcon(iconSource.path, size, outPath, variant);
+    } else {
+      await createLegacyAppIcon(iconSource.path, iconSquare, size, outPath, variant);
+    }
   }
 
   await createOgImage(siteLogoPath, siteSquare, path.join(appDir, "og-image.png"));
@@ -243,7 +287,9 @@ async function main() {
   await createSplash(siteLogoPath, siteSquare, 1170, 2532, path.join(splashDir, "apple-splash-1170x2532.png"));
   await createSplash(siteLogoPath, siteSquare, 1284, 2778, path.join(splashDir, "apple-splash-1284x2778.png"));
 
-  console.log("PWA icons from main_logo.jpg; OG/splash from logo.png (сайт без изменений)");
+  console.log(
+    `PWA icons from ${path.basename(iconSource.path)}; внутри сайта — logo.png без изменений`,
+  );
 }
 
 main().catch((error) => {
