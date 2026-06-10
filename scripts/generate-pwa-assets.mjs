@@ -196,13 +196,23 @@ async function flattenDesignedIcon(sourcePath, size, blue) {
   return sharp(output, { raw: { width: size, height: size, channels: 4 } }).png().toBuffer();
 }
 
-/** Готовая иконка (new_logo3): уже скруглённая — только синий фон до краёв, без повторной маски. */
+/** Скруглённая синяя иконка: углы прозрачные (Windows/панель задач рисуют скругление). */
 async function createDesignedAppIcon(sourcePath, size, outPath) {
   const blue = brandBlue();
+  const radius = Math.round(size * ICON_CORNER_RADIUS);
 
-  await sharp(sourcePath)
+  const flattened = await sharp(sourcePath)
     .resize(size, size, { fit: "contain", background: blue })
     .flatten({ background: blue })
+    .png()
+    .toBuffer();
+
+  const roundedMask = await sharp(roundedRectSvg(size, radius, "#ffffff"))
+    .png()
+    .toBuffer();
+
+  await sharp(flattened)
+    .composite([{ input: roundedMask, blend: "dest-in" }])
     .png()
     .toFile(outPath);
 }
