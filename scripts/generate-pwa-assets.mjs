@@ -19,6 +19,7 @@ const appDir = path.join(root, "public");
 const appMetaDir = path.join(root, "app");
 
 const BACKGROUND = "#F8FAFC";
+const ICON_BLUE = { r: 33, g: 0, b: 255 };
 const ICON_CORNER_RADIUS = 0.22;
 
 const SQUARE_ICON_INSET = {
@@ -73,30 +74,8 @@ async function resolveIconSource() {
   return null;
 }
 
-async function sampleBrandBlue(sourcePath) {
-  const { data, info } = await sharp(sourcePath)
-    .resize(300, 300, { fit: "fill" })
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  let best = { r: 33, g: 0, b: 255 };
-  let bestScore = 0;
-
-  for (let y = 0; y < info.height; y += 1) {
-    for (let x = 0; x < info.width; x += 1) {
-      const idx = (y * info.width + x) * info.channels;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-      const score = b - Math.max(r, g);
-      if (b > 90 && score > bestScore) {
-        bestScore = score;
-        best = { r, g, b };
-      }
-    }
-  }
-
-  return best;
+function brandBlue() {
+  return ICON_BLUE;
 }
 
 function isBackgroundWhite(r, g, b) {
@@ -209,33 +188,10 @@ async function flattenDesignedIcon(sourcePath, size, blue) {
   return sharp(output, { raw: { width: size, height: size, channels: 4 } }).png().toBuffer();
 }
 
-/** Готовая иконка new_logo1.png — синий фон на весь квадрат, без белых углов. */
-async function createDesignedAppIcon(sourcePath, size, outPath, variant = "any") {
-  const blue = await sampleBrandBlue(sourcePath);
+/** Готовая иконка new_logo1.png — синий #2100FF до краёв (maskable = тот же файл). */
+async function createDesignedAppIcon(sourcePath, size, outPath) {
+  const blue = brandBlue();
   const flattened = await flattenDesignedIcon(sourcePath, size, blue);
-
-  if (variant === "maskable") {
-    const inset = Math.round(size * 0.08);
-    const inner = size - inset * 2;
-    const innerLogo = await sharp(flattened)
-      .resize(inner, inner, { fit: "fill" })
-      .png()
-      .toBuffer();
-
-    await sharp({
-      create: {
-        width: size,
-        height: size,
-        channels: 3,
-        background: blue,
-      },
-    })
-      .composite([{ input: innerLogo, gravity: "centre" }])
-      .png()
-      .toFile(outPath);
-    return;
-  }
-
   await sharp(flattened).png().toFile(outPath);
 }
 
@@ -404,21 +360,32 @@ async function main() {
   await ensureDir(appMetaDir);
 
   const iconJobs = [
-    [192, path.join(iconsDir, "icon-192.png"), "any"],
-    [512, path.join(iconsDir, "icon-512.png"), "any"],
-    [192, path.join(iconsDir, "icon-192-maskable.png"), "maskable"],
-    [512, path.join(iconsDir, "icon-512-maskable.png"), "maskable"],
-    [32, path.join(appDir, "favicon-32.png"), "any"],
-    [192, path.join(appMetaDir, "icon.png"), "any"],
-    [180, path.join(appMetaDir, "apple-icon.png"), "any"],
+    [192, path.join(iconsDir, "icon-192.png")],
+    [512, path.join(iconsDir, "icon-512.png")],
+    [32, path.join(appDir, "favicon-32.png")],
+    [192, path.join(appMetaDir, "icon.png")],
+    [180, path.join(appMetaDir, "apple-icon.png")],
   ];
 
-  for (const [size, outPath, variant] of iconJobs) {
+  for (const [size, outPath] of iconJobs) {
     if (iconSource.mode === "designed") {
-      await createDesignedAppIcon(iconSource.path, size, outPath, variant);
+      await createDesignedAppIcon(iconSource.path, size, outPath);
     } else {
-      await createLegacyAppIcon(iconSource.path, iconSquare, size, outPath, variant);
+      await createLegacyAppIcon(iconSource.path, iconSquare, size, outPath, "any");
     }
+  }
+
+  if (iconSource.mode === "designed") {
+    await createDesignedAppIcon(
+      iconSource.path,
+      192,
+      path.join(iconsDir, "icon-192-maskable.png"),
+    );
+    await createDesignedAppIcon(
+      iconSource.path,
+      512,
+      path.join(iconsDir, "icon-512-maskable.png"),
+    );
   }
 
   await createOgImage(siteLogoPath, siteSquare, path.join(appDir, "og-image.png"));
