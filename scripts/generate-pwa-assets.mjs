@@ -10,6 +10,7 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
+const designedIconRootPath = path.join(root, "new_logo3(1).png");
 const designedIconPath = path.join(root, "public", "new_logo3.png");
 const designedIconFallbackPath = path.join(root, "public", "new_logo1.png");
 const legacyIconPath = path.join(root, "public", "main_logo.jpg");
@@ -66,6 +67,9 @@ function roundedRectSvg(size, radius, fill) {
 }
 
 async function resolveIconSource() {
+  if (await fileExists(designedIconRootPath)) {
+    return { path: designedIconRootPath, mode: "designed" };
+  }
   if (await fileExists(designedIconPath)) {
     return { path: designedIconPath, mode: "designed" };
   }
@@ -192,35 +196,13 @@ async function flattenDesignedIcon(sourcePath, size, blue) {
   return sharp(output, { raw: { width: size, height: size, channels: 4 } }).png().toBuffer();
 }
 
-/** Готовая иконка (new_logo3): синий #2100FF до краёв, прозрачность → синий. */
+/** Готовая иконка (new_logo3): уже скруглённая — только синий фон до краёв, без повторной маски. */
 async function createDesignedAppIcon(sourcePath, size, outPath) {
   const blue = brandBlue();
-  const radius = Math.round(size * ICON_CORNER_RADIUS);
 
-  const flattened = await sharp(sourcePath)
-    .resize(size, size, { fit: "cover", position: "centre" })
+  await sharp(sourcePath)
+    .resize(size, size, { fit: "contain", background: blue })
     .flatten({ background: blue })
-    .png()
-    .toBuffer();
-
-  const roundedMask = await sharp(roundedRectSvg(size, radius, "#ffffff"))
-    .png()
-    .toBuffer();
-
-  const masked = await sharp(flattened)
-    .composite([{ input: roundedMask, blend: "dest-in" }])
-    .png()
-    .toBuffer();
-
-  await sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 3,
-      background: blue,
-    },
-  })
-    .composite([{ input: masked, gravity: "centre" }])
     .png()
     .toFile(outPath);
 }
