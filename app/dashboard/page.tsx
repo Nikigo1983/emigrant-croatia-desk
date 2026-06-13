@@ -68,10 +68,8 @@ export default async function DashboardPage() {
 
   const currentStatus = caseItem.current_status ?? CASE_STATUSES[0];
   const statusIndex = CASE_STATUSES.findIndex((status) => status === currentStatus);
-  const nextStatus =
-    statusIndex >= 0 && statusIndex < CASE_STATUSES.length - 1
-      ? CASE_STATUSES[statusIndex + 1]
-      : null;
+  const visibleStatuses =
+    statusIndex >= 0 ? CASE_STATUSES.slice(0, statusIndex + 1) : CASE_STATUSES.slice(0, 1);
   const safeStatus = CASE_STATUSES.includes(currentStatus as CaseStatus)
     ? (currentStatus as CaseStatus)
     : CASE_STATUSES[0];
@@ -155,31 +153,19 @@ export default async function DashboardPage() {
           ) : null}
         </div>
 
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-950 shadow-sm">
-          <h2 className="text-xl font-semibold text-red-950">Следующий этап</h2>
-          <p className="mt-2 text-sm font-medium leading-relaxed text-red-900">
-            {nextStatus ?? "Финальный этап достигнут"}
-          </p>
-        </div>
-
         <div className="rounded-xl border border-[var(--input-border)] bg-white p-5">
           <h2 className="text-xl font-semibold">Прогресс по вашему делу</h2>
           <ol className="mt-4 space-y-2 text-sm">
-            {CASE_STATUSES.map((status, index) => {
+            {visibleStatuses.map((status, index) => {
               const isCurrent = status === currentStatus;
-              const isDone = statusIndex >= 0 ? index < statusIndex : index === 0;
-              const isFuture = !isDone && !isCurrent;
+              const isDone = statusIndex >= 0 ? index < statusIndex : false;
               const reachedIso = statusReachedMap[status];
               const fallbackCurrent =
                 isCurrent && !reachedIso && caseItem.status_updated_at
                   ? caseItem.status_updated_at
                   : null;
               const dateIso = reachedIso ?? fallbackCurrent;
-              const dateLine = isFuture
-                ? "ожидается"
-                : dateIso
-                  ? formatStageDateRu(dateIso)
-                  : "—";
+              const dateLine = dateIso ? formatStageDateRu(dateIso) : "—";
 
               return (
                 <li
@@ -187,24 +173,18 @@ export default async function DashboardPage() {
                   className={`grid grid-cols-1 gap-1.5 rounded-lg border px-3 py-2.5 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-4 ${
                     isCurrent
                       ? "border-emerald-600 bg-emerald-200 text-emerald-950 shadow-sm"
-                      : isDone
-                        ? "border-[var(--accent)] bg-[var(--accent)]/5 text-slate-900"
-                        : "border-[var(--input-border)] bg-white text-slate-800"
+                      : "border-[var(--accent)] bg-[var(--accent)]/5 text-slate-900"
                   }`}
                 >
                   <span
-                    className={`min-w-0 leading-snug ${isCurrent ? "font-semibold" : isDone ? "font-medium" : ""}`}
+                    className={`min-w-0 leading-snug ${isCurrent ? "font-semibold" : "font-medium"}`}
                   >
                     {isDone ? <span className="mr-1 text-emerald-700">✓</span> : null}
                     {status}
                   </span>
                   <span
                     className={`text-xs tabular-nums sm:text-right ${
-                      isCurrent
-                        ? "font-medium text-emerald-900/85"
-                        : isFuture
-                          ? "text-slate-400"
-                          : "text-slate-500"
+                      isCurrent ? "font-medium text-emerald-900/85" : "text-slate-500"
                     }`}
                   >
                     {dateLine}
