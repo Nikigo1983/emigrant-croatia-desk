@@ -18,12 +18,14 @@ type ClientRow = {
   first_name: string | null;
   last_name: string | null;
   email: string;
+  created_at: string;
 };
 
 type CaseRow = {
   client_id: string;
   current_status: string | null;
   case_number: string | null;
+  is_new_from_formgrid: boolean;
 };
 
 function matchesNameSearch(client: ClientRow, needle: string): boolean {
@@ -38,37 +40,54 @@ function matchesNameSearch(client: ClientRow, needle: string): boolean {
 }
 
 type PageProps = {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; new?: string }>;
 };
 
 export default async function AdminClientsPage({ searchParams }: PageProps) {
-  const { q } = await searchParams;
+  const { q, new: newFilter } = await searchParams;
   const searchRaw = typeof q === "string" ? q : "";
   const search = searchRaw.trim();
+  const onlyNew = newFilter === "1";
 
   const { supabase } = await requireAdmin();
   const { data: clients } = await supabase
     .from("profiles")
-    .select("user_id, first_name, last_name, email")
+    .select("user_id, first_name, last_name, email, created_at")
     .eq("role", "client")
     .order("created_at", { ascending: false });
 
   const allClients = (clients ?? []) as ClientRow[];
-  const filteredClients = search
-    ? allClients.filter((client) => matchesNameSearch(client, search))
-    : allClients;
-
-  const clientIds = filteredClients.map((client) => client.user_id);
-  const { data: cases } = clientIds.length
+  const clientIdsAll = allClients.map((client) => client.user_id);
+  const { data: allCases } = clientIdsAll.length
     ? await supabase
         .from("cases")
-        .select("client_id, current_status, case_number")
-        .in("client_id", clientIds)
+        .select("client_id, current_status, case_number, is_new_from_formgrid")
+        .in("client_id", clientIdsAll)
     : { data: [] as CaseRow[] };
 
   const caseMap = new Map<string, CaseRow>(
-    (cases ?? []).map((caseItem) => [caseItem.client_id, caseItem]),
+    (allCases ?? []).map((caseItem) => [caseItem.client_id, caseItem]),
   );
+
+  const newClientsCount = allClients.filter(
+    (client) => caseMap.get(client.user_id)?.is_new_from_formgrid,
+  ).length;
+
+  const filteredClients = allClients
+    .filter((client) => {
+      if (onlyNew && !caseMap.get(client.user_id)?.is_new_from_formgrid) {
+        return false;
+      }
+      return matchesNameSearch(client, search);
+    })
+    .sort((a, b) => {
+      const aNew = caseMap.get(a.user_id)?.is_new_from_formgrid ? 1 : 0;
+      const bNew = caseMap.get(b.user_id)?.is_new_from_formgrid ? 1 : 0;
+      if (aNew !== bNew) {
+        return bNew - aNew;
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 px-4 py-6 sm:py-10">
@@ -86,6 +105,18 @@ export default async function AdminClientsPage({ searchParams }: PageProps) {
             изменить статус дела и данные; клиент увидит обновления в кабинете, при включённых
             уведомлениях ему уйдёт письмо.
           </p>
+          {newClientsCount > 0 ? (
+            <p className="mt-3 text-sm font-medium text-amber-900">
+              Новых из Formgrid: {newClientsCount}.{" "}
+              <Link
+                href={onlyNew ? "/admin/clients" : "/admin/clients?new=1"}
+                className="text-[var(--accent)] underline"
+                prefetch={false}
+              >
+                {onlyNew ? "Показать всех" : "Показать только новых"}
+              </Link>
+            </p>
+          ) : null}
         </div>
 
         {!allClients.length ? (
@@ -164,11 +195,13 @@ export default async function AdminClientsPage({ searchParams }: PageProps) {
                   const passportLabel =
                     caseItem?.case_number?.trim() ? caseItem.case_number.trim() : "—";
 
+                  const isNew = Boolean(caseItem?.is_new_from_formgrid);
+
                   return (
                     <AdminMobileCard
                       key={client.user_id}
                       title={fullName || "Без имени"}
-                      badge={index + 1}
+                      badge={isNew ? "Новый" : index + 1}
                       footer={
                         <Link
                           href={`/admin/clients/${client.user_id}`}
@@ -214,15 +247,28 @@ export default async function AdminClientsPage({ searchParams }: PageProps) {
                       const passportLabel =
                         caseItem?.case_number?.trim() ? caseItem.case_number.trim() : "—";
 
+                      const isNew = Boolean(caseItem?.is_new_from_formgrid);
+
                       return (
                         <tr
                           key={client.user_id}
-                          className="border-b border-[var(--input-border)] last:border-0"
+                          className={`border-b border-[var(--input-border)] last:border-0 ${
+                            isNew ? "bg-amber-50/80" : ""
+                          }`}
                         >
                           <td className="px-3 py-3 text-center tabular-nums text-slate-600">
                             {rowNumber}
                           </td>
-                          <td className="px-4 py-3 font-medium text-black">{fullName || "Без имени"}</td>
+                          <td className="px-4 py-3 font-medium text-black">
+                            <span className="inline-flex flex-wrap items-center gap-2">
+                              {fullName || "Без имени"}
+                              {isNew ? (
+                                <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-950">
+                                  Новый
+                                </span>
+                              ) : null}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 tabular-nums text-slate-800">{passportLabel}</td>
                           <td className="px-4 py-3">{client.email}</td>
                           <td

@@ -7,11 +7,16 @@ import { Button } from "@/components/ui/button";
 type Props = {
   clientId: string;
   clientEmail: string;
+  initialPassword?: string | null;
 };
 
 const initialState: { error?: string; newPassword?: string } = {};
 
-export function AdminClientAccessHelp({ clientId, clientEmail }: Props) {
+export function AdminClientAccessHelp({
+  clientId,
+  clientEmail,
+  initialPassword,
+}: Props) {
   const action = useMemo(() => resetClientPasswordAction.bind(null, clientId), [clientId]);
   const [state, formAction, isPending] = useActionState(action, initialState);
   const [copiedFor, setCopiedFor] = useState<string | null>(null);
@@ -48,6 +53,17 @@ export function AdminClientAccessHelp({ clientId, clientEmail }: Props) {
       <p className="text-sm text-slate-600">
         Email для входа: <span className="font-medium text-black">{clientEmail}</span>
       </p>
+
+      {initialPassword ? (
+        <div className="rounded-lg border border-[var(--input-border)] bg-white p-3">
+          <p className="text-xs font-medium text-slate-700">Пароль при создании карточки</p>
+          <p className="mt-1 break-all font-mono text-sm text-black">{initialPassword}</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Сохранён в карточке для ручной отправки клиенту. При сбросе пароля ниже этот пароль
+            перестанет действовать.
+          </p>
+        </div>
+      ) : null}
 
       <form action={formAction} className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={isPending} className="w-auto px-4">

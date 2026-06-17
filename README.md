@@ -29,6 +29,8 @@ npm install
 - `20260509160000_admin_shared_client_access.sql`
 - `20260509180000_cases_status_reached_at.sql`
 - `20260519120000_client_cases_public_view.sql`
+- `20260613160000_formgrid_sync_fields.sql`
+- `20260613170000_formgrid_baseline_and_new_flag.sql`
 
 4. Запустите проект:
 
@@ -85,12 +87,53 @@ where email = 'admin@example.com';
 | `BREVO_API_KEY` | для писем |
 | `BREVO_SENDER_EMAIL` | для писем |
 | `BREVO_SENDER_NAME` | для писем |
+| `GOOGLE_SHEETS_FORMGRID_SPREADSHEET_ID` | для импорта Formgrid |
+| `GOOGLE_SHEETS_FORMGRID_GID` | gid листа в URL таблицы |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | service account Google |
+| `GOOGLE_PRIVATE_KEY` | приватный ключ service account |
+| `CRON_SECRET` | защита `/api/cron/sync-formgrid` |
 
 **Не добавляйте** на Vercel: `SKIP_AUTH_MIDDLEWARE`, `NODE_TLS_REJECT_UNAUTHORIZED`, `BREVO_SKIP_TLS_VERIFY`.
 
 После изменения переменных сделайте **Redeploy**.
 
 В Supabase: **отключить** публичную регистрацию (sign-up).
+
+## Импорт клиентов из Google Таблицы (Formgrid)
+
+Анкета Formgrid пишет строки в Google Sheets. Приложение читает таблицу и **автоматически создаёт карточку клиента**:
+
+- профиль + дело со **стартовым статусом** (`Заявка, форма и документы получены`);
+- **пароль генерируется** и сохраняется в карточке (`initial_password`) — админ отправляет вручную;
+- **письмо клиенту не отправляется** при создании (только при смене статуса админом).
+
+### Настройка Google
+
+1. Google Cloud → Service Account → JSON key.
+2. В `.env.local` / Vercel: `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`.
+3. Таблица Formgrid уже задана в `.env.example`:
+   - `GOOGLE_SHEETS_FORMGRID_SPREADSHEET_ID=1S8Y0VCaAQ78wxg5Rxl8fcFMkwSsvr-X-cLrAlK4nF9Q`
+   - `GOOGLE_SHEETS_FORMGRID_GID=0`
+4. Расшарьте таблицу на email service account (роль **Читатель**).
+5. Включите **Google Sheets API** в проекте Google Cloud.
+
+Из таблицы в карточку клиента попадают только:
+- **Имя и фамилия** — из колонки `1. Фамилия, Имя, Отчество (кириллицей)` (формат «ФАМИЛИЯ ИМЯ ОТЧЕСТВО»);
+- **Email** — `Электронный адрес (только .com)`;
+- **Номер паспорта** — `8. № заграничного паспорта`.
+
+Остальные колонки анкеты не импортируются.
+
+### Синхронизация
+
+- **Вручную:** `/admin/clients/new` → «Синхронизировать сейчас».
+- **Авто:** Vercel Cron каждые 10 мин → `GET /api/cron/sync-formgrid` (нужен `CRON_SECRET`).
+
+Уже импортированные строки пропускаются (ключ `formgrid_row_key` в `cases`).
+
+**Первый запуск синхронизации** фиксирует все текущие строки таблицы как «уже были» — клиенты из них **не создаются**. Импортируются только анкеты, появившиеся после подключения.
+
+Новые клиенты из Formgrid помечаются **«Новый»** в списке `/admin/clients`. В карточке — кнопка **«Снять статус „Новый“»** после обработки.
 
 ## PWA (установка на телефон)
 

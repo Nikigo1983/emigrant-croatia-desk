@@ -7,6 +7,8 @@ import { STATUS_SUBMISSION_DETAILS } from "@/lib/constants/case-status-utils";
 import { generateTempPassword } from "@/lib/auth/generate-temp-password";
 import { requireAdmin } from "@/lib/auth/guards";
 import { validateEmail, validatePassword } from "@/lib/auth/validate-credentials";
+import { createClientRecord } from "@/lib/clients/create-client-record";
+import { syncFormgridClients, type FormgridSyncResult } from "@/lib/formgrid/sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { mergeStatusReachedAt } from "@/lib/cases/status-stage-dates";
 import { formatBrevoRequestError } from "@/lib/email/brevo-fetch";
@@ -44,55 +46,35 @@ export async function createClientAction(_prevState: ActionState, formData: Form
     return { error: passwordError };
   }
 
-  const supabaseAdmin = createSupabaseAdminClient();
-  const { data: createdUser, error: createError } =
-    await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName,
-        last_name: lastName,
-      },
-    });
-
-  if (createError || !createdUser.user) {
-    return { error: createError?.message ?? "Не удалось создать пользователя." };
-  }
-
-  const userId = createdUser.user.id;
-
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .update({
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      role: "client",
-    })
-    .eq("user_id", userId);
-
-  if (profileError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    return { error: profileError.message };
-  }
-
-  const now = new Date().toISOString();
-  const { error: caseError } = await supabaseAdmin.from("cases").insert({
-    client_id: userId,
-    current_stage: "Первичная обработка",
-    current_status: CASE_STATUSES[0],
-    status_reached_at: { [CASE_STATUSES[0]]: now },
-    case_number: passportNumber.length > 0 ? passportNumber : null,
+  const result = await createClientRecord({
+    firstName,
+    lastName,
+    email,
+    password,
+    passportNumber,
+    storeInitialPassword: true,
   });
 
-  if (caseError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    return { error: caseError.message };
+  if (!result.ok) {
+    return { error: result.error };
   }
 
   revalidatePath("/admin/clients");
-  return { success: true, clientEmail: email, plainPassword: password };
+  return {
+    success: true,
+    clientEmail: result.email,
+    plainPassword: result.plainPassword,
+  };
+}
+
+export type SyncFormgridState = FormgridSyncResult & { triggeredAt?: string };
+
+export async function syncFormgridAction(): Promise<SyncFormgridState> {
+  await requireAdmin();
+  const result = await syncFormgridClients();
+  revalidatePath("/admin/clients");
+  revalidatePath("/admin/clients/new");
+  return { ...result, triggeredAt: new Date().toISOString() };
 }
 
 type ResetClientPasswordState = {
@@ -127,7 +109,44 @@ export async function resetClientPasswordAction(
     return { error: error.message };
   }
 
+  await supabaseAdmin
+    .from("cases")
+    .update({ initial_password: newPassword })
+    .eq("client_id", clientId);
+
   return { newPassword };
+}
+
+export type MarkClientReviewedState = { error?: string; success?: boolean };
+
+export async function markClientAsReviewedAction(
+  clientId: string,
+): Promise<MarkClientReviewedState> {
+  await requireAdmin();
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("user_id", clientId)
+    .maybeSingle();
+
+  if (profileError || !profile || profile.role !== "client") {
+    return { error: "Клиент не найден." };
+  }
+
+  const { error } = await supabaseAdmin
+    .from("cases")
+    .update({ is_new_from_formgrid: false })
+    .eq("client_id", clientId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/admin/clients");
+  revalidatePath(`/admin/clients/${clientId}`);
+  return { success: true };
 }
 
 export async function updateClientCaseAction(

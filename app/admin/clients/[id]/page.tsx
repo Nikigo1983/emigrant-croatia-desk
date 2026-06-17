@@ -5,6 +5,7 @@ import { Logo } from "@/components/logo";
 import { AdminNav } from "@/components/admin-nav";
 import { AdminClientAccessHelp } from "@/components/admin-client-access-help";
 import { AdminDeleteClientSection } from "@/components/admin-delete-client-section";
+import { AdminNewClientBanner } from "@/components/admin-new-client-banner";
 import { UpdateCaseForm } from "@/components/update-case-form";
 import { UpdateClientIdentityForm } from "@/components/update-client-identity-form";
 import { requireAdmin } from "@/lib/auth/guards";
@@ -30,7 +31,7 @@ export default async function AdminClientDetailsPage({ params }: Params) {
   const { data: caseItem } = await supabase
     .from("cases")
     .select(
-      "current_status, status_updated_at, submission_date, submission_city, case_number, consulate, internal_comment, curator_comment_for_client",
+      "current_status, status_updated_at, submission_date, submission_city, case_number, consulate, internal_comment, curator_comment_for_client, initial_password, is_new_from_formgrid",
     )
     .eq("client_id", id)
     .maybeSingle();
@@ -78,6 +79,7 @@ export default async function AdminClientDetailsPage({ params }: Params) {
 
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold">Карточка клиента: {fullName || "Клиент"}</h1>
+          {caseItem?.is_new_from_formgrid ? <AdminNewClientBanner clientId={id} /> : null}
           <dl className="grid gap-1 text-sm text-slate-600 sm:grid-cols-[auto_1fr] sm:gap-x-4 sm:gap-y-1">
             <dt className="text-slate-500">Дата создания клиента</dt>
             <dd className="font-medium text-slate-800">{createdAtLabel}</dd>
@@ -108,7 +110,11 @@ export default async function AdminClientDetailsPage({ params }: Params) {
         />
 
         <div className="border-t border-[var(--input-border)] pt-6">
-          <AdminClientAccessHelp clientId={id} clientEmail={profile.email} />
+          <AdminClientAccessHelp
+            clientId={id}
+            clientEmail={profile.email}
+            initialPassword={caseItem?.initial_password ?? null}
+          />
         </div>
 
         <AdminDeleteClientSection
