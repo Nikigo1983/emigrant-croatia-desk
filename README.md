@@ -127,7 +127,7 @@ where email = 'admin@example.com';
 ### Синхронизация
 
 - **Вручную:** `/admin/clients/new` → «Синхронизировать сейчас».
-- **Авто:** Vercel Cron каждые 10 мин → `GET /api/cron/sync-formgrid` (нужен `CRON_SECRET`).
+- **Авто:** Vercel Cron **раз в сутки** (08:00 UTC) → `/api/cron/sync-formgrid` (нужен `CRON_SECRET`; на Hobby чаще нельзя).
 
 Уже импортированные строки пропускаются (ключ `formgrid_row_key` в `cases`).
 

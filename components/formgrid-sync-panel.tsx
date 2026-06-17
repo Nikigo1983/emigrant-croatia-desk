@@ -41,7 +41,7 @@ export function FormgridSyncPanel({ configured }: Props) {
           </p>
         ) : (
           <p className="text-sm text-slate-600">
-            Автосинхронизация каждые 10 минут (Vercel Cron). Можно запустить вручную.
+            Автосинхронизация раз в сутки (Vercel Cron, план Hobby). Можно запустить вручную в любой момент.
           </p>
         )}
       </div>
