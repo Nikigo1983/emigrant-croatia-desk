@@ -28,7 +28,14 @@ function createServiceAccountJwt(
   const signer = createSign("RSA-SHA256");
   signer.update(signInput);
   signer.end();
-  const signature = signer.sign(privateKey, "base64url");
+  let signature: string;
+  try {
+    signature = signer.sign(privateKey, "base64url");
+  } catch {
+    throw new Error(
+      "GOOGLE_PRIVATE_KEY: не удалось прочитать ключ. В Vercel вставьте значение private_key из JSON одной строкой с \\n (без лишних кавычек в начале/конце).",
+    );
+  }
   return `${signInput}.${signature}`;
 }
 
