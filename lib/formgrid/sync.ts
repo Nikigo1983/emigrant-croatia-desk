@@ -29,6 +29,7 @@ export type FormgridSyncResult = {
   baselined: number;
   errors: number;
   baselineEstablished?: boolean;
+  noNewClients?: boolean;
   items: FormgridSyncItem[];
   error?: string;
 };
@@ -144,13 +145,9 @@ export async function syncFormgridClients(): Promise<FormgridSyncResult> {
 
     const mapped = mapSheetRowToClient(headerRow, row);
     if (!mapped) {
+      await recordFormgridBaselineRows([rowKey]);
+      knownRowKeys.add(rowKey);
       skipped += 1;
-      items.push({
-        rowNumber,
-        email: "",
-        status: "skipped",
-        message: "Пропущено: нет email или имени.",
-      });
       continue;
     }
 
@@ -179,13 +176,9 @@ export async function syncFormgridClients(): Promise<FormgridSyncResult> {
     }
 
     if (result.code === "duplicate_email" || result.code === "duplicate_row") {
+      await recordFormgridBaselineRows([rowKey]);
+      knownRowKeys.add(rowKey);
       skipped += 1;
-      items.push({
-        rowNumber,
-        email: mapped.email,
-        status: "skipped",
-        message: result.error,
-      });
       continue;
     }
 
@@ -206,6 +199,7 @@ export async function syncFormgridClients(): Promise<FormgridSyncResult> {
     skipped,
     baselined: 0,
     errors,
-    items,
+    noNewClients: created === 0 && errors === 0,
+    items: created > 0 || errors > 0 ? items : [],
   };
 }

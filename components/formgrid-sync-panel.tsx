@@ -61,6 +61,12 @@ export function FormgridSyncPanel({ configured }: Props) {
               уже существующие. Следующие синхронизации будут создавать только новых клиентов.
             </p>
           ) : null}
+          {result.noNewClients && !result.baselineEstablished ? (
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800">
+              Пока нет новых клиентов для импорта. Когда в Formgrid появится новая анкета,
+              нажмите синхронизацию снова или дождитесь автосинхронизации.
+            </p>
+          ) : null}
           <p className="text-slate-700">
             Проверено строк: <span className="font-medium">{result.scanned}</span> · создано:{" "}
             <span className="font-medium text-green-700">{result.created}</span> · пропущено:{" "}
@@ -76,15 +82,12 @@ export function FormgridSyncPanel({ configured }: Props) {
 
           {result.items.length > 0 ? (
             <ul className="max-h-56 space-y-1 overflow-y-auto text-xs text-slate-600">
-              {result.items
-                .filter((item) => item.status !== "skipped" || item.email)
-                .slice(0, 30)
-                .map((item) => (
-                  <li key={`${item.rowNumber}-${item.email}`}>
-                    Строка {item.rowNumber}
-                    {item.email ? ` · ${item.email}` : ""}: {item.message}
-                  </li>
-                ))}
+              {result.items.slice(0, 30).map((item) => (
+                <li key={`${item.rowNumber}-${item.email}-${item.status}`}>
+                  Строка {item.rowNumber}
+                  {item.email ? ` · ${item.email}` : ""}: {item.message}
+                </li>
+              ))}
             </ul>
           ) : null}
         </div>
