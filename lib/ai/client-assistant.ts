@@ -27,7 +27,7 @@ export async function buildClientAssistantMessages(
 ): Promise<ChatMessage[]> {
   const kbConfig = getGoogleDriveKbConfig();
   const knowledgeBase = kbConfig
-    ? await getKnowledgeBaseTextForAi(kbConfig)
+    ? await getKnowledgeBaseTextForAi(kbConfig, message)
     : "База знаний не настроена.";
 
   const system = buildClientAssistantSystemMessage(
