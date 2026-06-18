@@ -24,6 +24,11 @@ export function DashboardNav() {
               label: "Инструкции",
               active: pathname === "/dashboard/instructions",
             },
+            {
+              href: "/dashboard/assistant",
+              label: "AI-ассистент",
+              active: pathname === "/dashboard/assistant",
+            },
           ],
         },
       ]}

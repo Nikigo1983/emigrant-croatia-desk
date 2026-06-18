@@ -92,6 +92,9 @@ where email = 'admin@example.com';
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | service account Google |
 | `GOOGLE_PRIVATE_KEY` | приватный ключ service account |
 | `CRON_SECRET` | защита `/api/cron/sync-formgrid` |
+| `OPENROUTER_API_KEY` | AI-ассистент клиентов (или `OPENAI_API_KEY`) |
+| `GOOGLE_DRIVE_KB_FOLDER_ID` | корневая папка базы знаний Google Drive |
+| `GOOGLE_DRIVE_KB_EXCLUDE_FOLDER_IDS` | ID папок-исключений (например `Clients`) |
 
 **Не добавляйте** на Vercel: `SKIP_AUTH_MIDDLEWARE`, `NODE_TLS_REJECT_UNAUTHORIZED`, `BREVO_SKIP_TLS_VERIFY`.
 
@@ -115,7 +118,7 @@ where email = 'admin@example.com';
    - `GOOGLE_SHEETS_FORMGRID_SPREADSHEET_ID=1S8Y0VCaAQ78wxg5Rxl8fcFMkwSsvr-X-cLrAlK4nF9Q`
    - `GOOGLE_SHEETS_FORMGRID_GID=0`
 4. Расшарьте таблицу на email service account (роль **Читатель**).
-5. Включите **Google Sheets API** в проекте Google Cloud.
+5. Включите **Google Sheets API** и **Google Drive API** в проекте Google Cloud.
 
 Из таблицы в карточку клиента попадают только:
 - **Имя и фамилия** — из колонки `1. Фамилия, Имя, Отчество (кириллицей)` (формат «ФАМИЛИЯ ИМЯ ОТЧЕСТВО»);
@@ -134,6 +137,17 @@ where email = 'admin@example.com';
 **Первый запуск синхронизации** фиксирует все текущие строки таблицы как «уже были» — клиенты из них **не создаются**. Импортируются только анкеты, появившиеся после подключения.
 
 Новые клиенты из Formgrid помечаются **«Новый»** в списке `/admin/clients`. В карточке — кнопка **«Снять статус „Новый“»** после обработки.
+
+## AI-ассистент для клиентов
+
+Раздел **`/dashboard/assistant`** в личном кабинете клиента.
+
+- Ответы на основе **Google Drive** (база знаний) и **текущего статуса дела** клиента.
+- Папки из `GOOGLE_DRIVE_KB_EXCLUDE_FOLDER_IDS` (например `Clients`) **не читаются**.
+- Поддерживаются Google Docs, Word (.docx) и текстовые файлы.
+- Доступ только для роли `client`; админы перенаправляются в `/admin`.
+
+Переменные: см. `.env.example` (`OPENROUTER_*`, `AI_WORKSPACE_*`, `GOOGLE_DRIVE_KB_*`).
 
 ## PWA (установка на телефон)
 
