@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Logo } from "@/components/logo";
+import { DashboardAssistantPromo } from "@/components/dashboard-assistant-promo";
 import { DashboardEmailNotice } from "@/components/dashboard-email-notice";
 import { DashboardFooter } from "@/components/dashboard-footer";
 import { DashboardNav } from "@/components/dashboard-nav";
@@ -54,6 +55,7 @@ export default async function DashboardPage() {
             <p className="text-sm text-slate-500">Ваш email: {user.email}</p>
           </div>
           {user.email ? <DashboardEmailNotice email={user.email} /> : null}
+          <DashboardAssistantPromo />
           <div className="rounded-xl border border-[var(--input-border)] bg-white p-5">
             <p className="text-slate-700">
               Дело ещё не создано. Пожалуйста, свяжитесь с администратором.
@@ -99,6 +101,8 @@ export default async function DashboardPage() {
         </div>
 
         {user.email ? <DashboardEmailNotice email={user.email} /> : null}
+
+        <DashboardAssistantPromo />
 
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 shadow-sm">
           <p className="text-sm font-medium text-emerald-800/90">Статус вашего процесса сейчас</p>

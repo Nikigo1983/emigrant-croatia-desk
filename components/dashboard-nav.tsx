@@ -28,6 +28,7 @@ export function DashboardNav() {
               href: "/dashboard/assistant",
               label: "AI-ассистент",
               active: pathname === "/dashboard/assistant",
+              featured: pathname !== "/dashboard/assistant",
             },
           ],
         },

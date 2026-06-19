@@ -7,6 +7,7 @@ export type BurgerNavItem = {
   href: string;
   label: string;
   active: boolean;
+  featured?: boolean;
 };
 
 export type BurgerNavSection = {
@@ -23,7 +24,11 @@ type BurgerNavProps = {
 const desktopLinkBase =
   "inline-flex shrink-0 items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition-colors duration-150 sm:px-4";
 
-function desktopLinkClass(active: boolean) {
+function desktopLinkClass(active: boolean, featured?: boolean) {
+  if (featured && !active) {
+    return `${desktopLinkBase} border-[var(--accent)]/40 bg-[var(--accent)]/10 font-semibold text-[var(--accent)] shadow-sm hover:border-[var(--accent)] hover:bg-[var(--accent)]/15`;
+  }
+
   return `${desktopLinkBase} ${
     active
       ? "border-[var(--accent)] bg-[var(--accent)]/5 text-[var(--accent)]"
@@ -31,7 +36,11 @@ function desktopLinkClass(active: boolean) {
   }`;
 }
 
-function mobileLinkClass(active: boolean) {
+function mobileLinkClass(active: boolean, featured?: boolean) {
+  if (featured && !active) {
+    return `flex w-full items-center rounded-xl border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-4 py-3 text-base font-semibold text-[var(--accent)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)]/15`;
+  }
+
   return `flex w-full items-center rounded-xl border px-4 py-3 text-base font-medium transition-colors ${
     active
       ? "border-[var(--accent)] bg-[var(--accent)]/5 text-[var(--accent)]"
@@ -147,7 +156,7 @@ export function BurgerNav({
                             key={item.href}
                             href={item.href}
                             prefetch={false}
-                            className={mobileLinkClass(item.active)}
+                            className={mobileLinkClass(item.active, item.featured)}
                             onClick={() => setOpen(false)}
                           >
                             {item.label}
@@ -172,7 +181,7 @@ export function BurgerNav({
             key={item.href}
             href={item.href}
             prefetch={false}
-            className={desktopLinkClass(item.active)}
+            className={desktopLinkClass(item.active, item.featured)}
           >
             {item.label}
           </Link>
