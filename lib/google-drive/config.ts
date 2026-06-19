@@ -1,7 +1,7 @@
 import { normalizeGooglePrivateKey } from "@/lib/google-sheets/normalize-private-key";
 
 export type GoogleDriveKbConfig = {
-  folderId: string;
+  folderIds: string[];
   excludeFolderIds: Set<string>;
   serviceAccountEmail: string;
   privateKey: string;
@@ -45,23 +45,40 @@ function readCredentialsFromEnv(): { email: string; privateKey: string } | null 
   }
 }
 
+function parseFolderIds(...values: Array<string | undefined>): string[] {
+  const ids = new Set<string>();
+
+  for (const value of values) {
+    if (!value?.trim()) {
+      continue;
+    }
+    for (const part of value.split(",")) {
+      const id = part.trim();
+      if (id) {
+        ids.add(id);
+      }
+    }
+  }
+
+  return [...ids];
+}
+
 export function getGoogleDriveKbConfig(): GoogleDriveKbConfig | null {
-  const folderId = process.env.GOOGLE_DRIVE_KB_FOLDER_ID?.trim() || "";
+  const folderIds = parseFolderIds(
+    process.env.GOOGLE_DRIVE_KB_FOLDER_ID,
+    process.env.GOOGLE_DRIVE_KB_EXTRA_FOLDER_IDS,
+  );
   const credentials = readCredentialsFromJson() ?? readCredentialsFromEnv();
-  if (!credentials || !folderId) {
+  if (!credentials || folderIds.length === 0) {
     return null;
   }
 
-  const excludeRaw = process.env.GOOGLE_DRIVE_KB_EXCLUDE_FOLDER_IDS?.trim() || "";
   const excludeFolderIds = new Set(
-    excludeRaw
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean),
+    parseFolderIds(process.env.GOOGLE_DRIVE_KB_EXCLUDE_FOLDER_IDS),
   );
 
   return {
-    folderId,
+    folderIds,
     excludeFolderIds,
     serviceAccountEmail: credentials.email,
     privateKey: credentials.privateKey,
