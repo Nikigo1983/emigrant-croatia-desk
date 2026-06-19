@@ -146,6 +146,9 @@ where email = 'admin@example.com';
 - Папки из `GOOGLE_DRIVE_KB_EXCLUDE_FOLDER_IDS` (например `Clients`) **не читаются**.
 - Поддерживаются Google Docs, Word (.docx) и текстовые файлы.
 - Доступ только для роли `client`; админы перенаправляются в `/admin`.
+- История диалога сохраняется в Supabase (`client_assistant_chats`); кнопка **«Удалить диалог»** очищает историю.
+
+Миграция: `supabase/migrations/20260619120000_client_assistant_chats.sql`.
 
 Переменные: см. `.env.example` (`OPENROUTER_*`, `AI_WORKSPACE_*`, `GOOGLE_DRIVE_KB_*`).
 
