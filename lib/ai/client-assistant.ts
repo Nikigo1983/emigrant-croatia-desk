@@ -1,5 +1,9 @@
 import { buildClientCaseContextForAi } from "@/lib/ai/client-case-context";
-import { buildClientAssistantSystemMessage } from "@/lib/ai/client-assistant-prompt";
+import {
+  CLIENT_ASSISTANT_DELAY_SAFE_REPLY,
+  buildClientAssistantSystemMessage,
+} from "@/lib/ai/client-assistant-prompt";
+import { shouldUseCompanySafeReply } from "@/lib/ai/client-assistant-safety";
 import type { ChatMessage } from "@/lib/ai/openrouter";
 import { completeChat, streamChat } from "@/lib/ai/openrouter";
 import { getWorkspaceInferenceConfig } from "@/lib/ai/workspace-config";
@@ -51,6 +55,15 @@ export async function runClientAssistant(
   caseItem: ClientDashboardCaseRow | null,
   onDelta?: (delta: string) => void,
 ): Promise<string> {
+  // Жёсткий блок: жалобы на сроки и запросы против компании — без вызова модели.
+  if (shouldUseCompanySafeReply(message)) {
+    const safeReply = CLIENT_ASSISTANT_DELAY_SAFE_REPLY;
+    if (onDelta) {
+      onDelta(safeReply);
+    }
+    return safeReply;
+  }
+
   const messages = await buildClientAssistantMessages(message, history, caseItem);
   const inference = getWorkspaceInferenceConfig();
 
